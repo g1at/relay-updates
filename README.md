@@ -1,62 +1,71 @@
-# Relay updater artifacts
+# Relay 下载与更新
 
-This repository hosts Relay Windows installer artifacts used by electron-updater.
+Relay 是 Windows 本地 AI 助手。这个公开仓库提供官方安装包、应用内更新文件和命令行安装入口。
 
-## Windows 命令行安装
+## 一条命令安装或升级
 
-在 **Windows PowerShell 5.1 或 PowerShell 7** 中执行：
+在 **Windows x64 的 PowerShell 5.1 或 PowerShell 7** 中执行。新用户和老用户使用同一条命令，无需 GitHub 账号，也无需预装 Git、Node.js、Python 或 Claude Code：
 
 ```powershell
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/g1at/relay-updates/main/install.ps1')))
 ```
 
-脚本会读取本仓库最新正式 Release，下载 Windows x64 安装包，核对文件大小和 GitHub 提供的 SHA-256，再静默安装。完成后从开始菜单打开 Relay。
+| 当前状态 | 命令会做什么 |
+| --- | --- |
+| 从未安装 | 下载最新正式版，默认安装到当前用户目录 |
+| 已安装旧版 | 沿用已登记的目录和安装范围升级 |
+| 已是最新版 | 验证安装文件后提示已是最新版，不重复下载安装 |
+| 本地版本更高 | 拒绝自动降级 |
+| Relay 正在运行 | 可先完成下载；执行安装前提示退出，安装包保留供下次复用 |
 
-新安装默认使用当前用户范围；已有安装由安装器沿用原有目录和范围，机器级安装可能请求 UAC 授权。无需先安装 Git、Node.js、Python 或 GitHub CLI。脚本不安装 WSL 或其他外部工具。
+安装成功后，从开始菜单打开 Relay。首次使用仍需配置服务商；脚本不安装 WSL，也不会替用户填写密钥。
 
-### 只下载
+## 下载、版本与安装向导
 
 ```powershell
+# 只下载，不安装，不影响正在运行的 Relay
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/g1at/relay-updates/main/install.ps1'))) -DownloadOnly
-```
 
-默认保存到 `%LOCALAPPDATA%\Relay\Installers`。已经下载且大小、哈希正确的安装包可以复用；下载中断或校验失败不会执行文件。
-
-### 指定版本、目录或打开安装向导
-
-```powershell
-# 指定正式版本
+# 指定正式版本；不会自动降级
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/g1at/relay-updates/main/install.ps1'))) -Version 3.0.0
 
-# 仅下载到指定目录
+# 仅下载到指定目录（不是修改应用安装目录）
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/g1at/relay-updates/main/install.ps1'))) -DownloadOnly -DownloadDirectory 'D:\Downloads\Relay'
 
-# 使用可见的安装向导
+# 显示安装向导，也可用于修复文件不完整的同版本安装
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/g1at/relay-updates/main/install.ps1'))) -Interactive
 ```
 
-也可以先保存脚本、查看内容后再运行：
+默认下载目录是 `%LOCALAPPDATA%\Relay\Installers`。中断后重新执行同一命令，会复用已下载的部分继续下载；如果服务端不支持续传，会重新下载。安装前始终验证文件大小和 SHA-256，校验失败不会执行。
+
+也可以先保存并查看脚本，再执行：
 
 ```powershell
 Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/g1at/relay-updates/main/install.ps1' -OutFile '.\relay-install.ps1'
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\relay-install.ps1' -DownloadOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\relay-install.ps1'
 ```
 
-去掉最后的 `-DownloadOnly` 即会执行安装。这里的执行策略参数只影响此次 PowerShell 进程，不修改系统的持久策略。
+这里的执行策略参数仅影响此次 PowerShell 进程，不修改系统的持久策略。
 
-## 升级与异常处理
+## 老用户升级
 
-- 安装前请退出 Relay，包括托盘中的后台实例。脚本会在开始和启动安装器前检查；检测到运行中的 Relay 会停止，不调用进程终止命令。下载期间请勿重新启动 Relay，安装器自身仍可能处理占用进程。
-- 升级沿用安装器保留用户数据的行为，不主动卸载或清理会话、设置和项目。
-- 同时存在当前用户和机器级安装记录时，脚本拒绝自动处理，请只下载后使用安装向导管理；不自动降级到已安装版本之前的版本。
-- 仅安装已公开、非预发布且拥有 SHA-256 元数据的 Windows x64 版本。缺少校验信息的旧 Release 不会绕过校验执行。
-- 脚本核对安装器退出码，并检查安装注册信息、`Relay.exe` 版本和 `app.asar`，无法确认结果时会报错，而不会只根据退出码 0 宣布成功。
-- 需要能够访问 GitHub API、Raw 内容和 Release 下载服务。GitHub 限流、代理或网络问题会明确报错，稍后可重试。
-- SHA-256 用于核对下载内容与 GitHub 上的文件一致，不替代 Windows 代码签名。当前安装包未配置代码签名证书。
+- 沿用安装器的原地升级流程，保留安装目录外的会话、配置、技能、记忆和项目文件，不主动清理个人数据。请勿将自己的文件放在应用安装目录中。
+- 当前用户安装一般无需管理员权限；原来是所有用户安装时，升级可能弹出 Windows UAC 授权。
+- 同时存在多个安装、安装登记损坏、未知旧产品标识或旧 32 位登记时，不猜测迁移位置。使用 `-DownloadOnly` 获取安装包，再通过安装向导检查处理。未登记的便携副本不承诺自动识别或迁移。
+- 升级前退出 Relay，包括托盘实例。下载完成后脚本会检查进程；**3.0.0 及更早安装包仍有原生关闭进程逻辑，安装期间请勿重新打开 Relay**。脚本不会调用强制终止命令，也不会假定旧安装包具备新保护能力。
+- 脚本检查安装器退出码、安装登记、原目录、应用文件及版本；无法确认时会报错，不会只凭退出码 0 宣布成功。
 
-## 手动下载与自动更新
+## 下载问题
+
+脚本优先读取本仓库的静态版本清单，正常情况下不依赖 GitHub API 配额；清单无法获取时会重试并回退到公开 Releases API。需要能够访问 GitHub Raw 和 Release 下载服务，失败时请检查网络或系统代理后重试。
+
+网络不可用时，可在另一台电脑下载官方 EXE 和校验文件后带到目标电脑手动安装；在线命令本身需要查询版本，不能当作离线安装命令。当前渠道提供 Windows x64 安装包，尚未提供 ARM64、macOS 或 Linux 安装包。
+
+SHA-256 用于校验下载内容，不替代 Windows 代码签名。当前 3.0.0 安装包未配置签名证书；Windows 的安全提示仍由系统处理。
+
+## 手动下载
 
 - [最新正式版本](https://github.com/g1at/relay-updates/releases/latest)
-- [Windows 安装包](https://github.com/g1at/relay-updates/releases/download/v3.0.0/Relay-3.0.0-Setup.exe)（3.0.0；其他版本请进入 Releases 选择）
+- [Relay 3.0.0 Windows 安装包](https://github.com/g1at/relay-updates/releases/download/v3.0.0/Relay-3.0.0-Setup.exe)
 
-Release 中的 `latest.yml` 和 `.blockmap` 供 Relay 内置自动更新使用；命令行脚本直接通过 Release 元数据下载并校验安装包。无需为了更新脚本而重新构建安装包。
+命令行安装与应用内更新使用同一份官方 EXE。`latest.yml` 和 `.blockmap` 供应用内更新使用；`latest.json` 和 `releases/vX.Y.Z.json` 供命令行安装使用。
